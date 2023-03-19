@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Book store</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .container {
+            display: grid;
+            grid-template-columns: auto auto auto auto auto auto;
+            gap: 15px;
+            padding: 30px;
+        }
+        .container .mini {
+            background-color: rgba(255, 255, 255, 0.8);
+            text-align: center;
+            padding: 20px 0;
+        }
+        .container .mini .name {
+            font-size: 36px;
+            font-family: 'Open Sans', sans-serif;
+            text-align: center;
+        }
+        .container .mini .others {
+            display: inline;
+            font-size: 16px;
+            font-family: 'Open Sans', sans-serif;
+        }
+        .button {
+             display: inline;
+             background-color: rgb(51, 102, 255);
+             border-radius: 5px;
+         }
+        .button .link {
+            text-decoration: none;
+            color: white;
+            font-size: 20px;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <button class="button"><a href="/" class="link">Main page</a></button>
+    {{if .Username}}
+    <div align="right" style="font-size: 26px;font-family: 'Montserrat', sans-serif;">{{.Username}}<button class="button"><a href="/logout" class="link">Logout</a></button></div>
+    {{end}}
+    <div class="container">
+        {{ range .Books }}
+        <div class="mini">
+            <div class="name">{{ .Name }}</div>
+            <div class="others" style="text-align: left">{{ .Author }}</div>
+            <div class="others" style="text-align: right">{{ .Price }}</div>
+        </div>
+        {{ end }}
+    </div>
+    {{ if .Checker }} {{ .Error }} {{ end }}
+</body>
+</html>
