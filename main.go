@@ -25,8 +25,9 @@ type Book struct {
 
 // Struct type that we send to templates, consist of username to show visually that we are logged in and books info from database
 type SentTemp struct {
-	Username string
-	Books    []Book
+	Username   string
+	Books      []Book
+	SearchName string
 }
 
 var SentTemplate SentTemp
@@ -40,6 +41,8 @@ func main() {
 		fmt.Println("Template parsing error")
 		panic(err.Error())
 	}
+
+	//defer db.Close()
 	//Handle functions that opens related function for every url
 	http.HandleFunc("/register", RegisterHandler)
 	http.HandleFunc("/registerconfirm", RegisterConfirmationHandler)
@@ -53,7 +56,8 @@ func main() {
 
 func Database() {
 	//Function that connects to database and takes all information from books table
-	db, err := sql.Open("mysql", "root:Ak200222!@tcp(localhost:3306)/testdb")
+	var err error
+	db, err = sql.Open("mysql", "root:Ak200222!@tcp(localhost:3306)/testdb")
 	if err != nil {
 		fmt.Println("Error connecting to database")
 		panic(err.Error())
@@ -67,14 +71,13 @@ func Database() {
 		var price string
 		var author string
 		var id int
-		err := rows.Scan(&id, &name, &price, &author)
+		err = rows.Scan(&id, &name, &price, &author)
 		if err != nil {
 			panic(err)
 		}
 		book := Book{name, author, price}
 		*books = append(*books, book)
 	}
-	defer db.Close()
 }
 
 func Cookie(r *http.Request) {
@@ -106,7 +109,7 @@ func BookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	Cookie(r) //Checking if logged in
 	//New template, since we must not change info that taken from data
-	SentTe := SentTemp{SentTemplate.Username, Books}
+	SentTe := SentTemp{SentTemplate.Username, Books, searchName}
 	tpl.ExecuteTemplate(w, "book.html", SentTe)
 	if len(Books) == 0 {
 		fmt.Println("No such book found")
@@ -141,9 +144,12 @@ func LoginConfirmationHadler(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 	//Taking hashed password from database with given username
+	fmt.Println("Take success")
+	fmt.Println(username, " ", password)
 	var hash string
 	statement := "SELECT password from Users WHERE username = ?"
 	row := db.QueryRow(statement, username)
+	fmt.Println("query success")
 	err := row.Scan(&hash)
 	if err != nil {
 		fmt.Println("Error taking hash from db")
@@ -237,6 +243,9 @@ func RegisterConfirmationHandler(w http.ResponseWriter, r *http.Request) {
 		tpl.ExecuteTemplate(w, "register.html", "Error inserting data")
 		return
 	}
+	session, _ := store.Get(r, "session")
+	session.Values["username"] = username
+	session.Save(r, w)
 	fmt.Println("User created successfully")
 	http.Redirect(w, r, "/", http.StatusFound)
 }

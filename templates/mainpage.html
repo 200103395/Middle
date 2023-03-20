@@ -3,18 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <title>Main page</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         .container {
             display: grid;
             grid-template-columns: auto auto auto auto auto auto;
             gap: 15px;
             padding: 30px;
+            max-width: 90vw;
+            width: 90vw;
+            margin: auto;
+            overflow: auto;
         }
         .container .mini {
             background-color: rgba(255, 255, 255, 0.8);
             text-align: center;
             padding: 20px 0;
+            border-radius: 5px;
+            border: 2px solid black;
+            box-shadow: 2px 2px 2px gray;
         }
         .container .mini .name {
             font-size: 36px;
@@ -34,12 +41,12 @@
         .button .link {
             text-decoration: none;
             color: white;
-            font-size: 20px;
+            font-size: 26px;
             padding: 0;
         }
         .username {
             display: inline;
-            padding-left: 1100px;
+            padding-left: 1300px;
             font-size: 26px;
             font-family: 'Montserrat', sans-serif;
             border-color: white;
@@ -52,13 +59,14 @@
     </style>
 </head>
 <body>
-    <button class="button" ><a href="/register" class=link>Registration</a></button>
-    <button class="button"><a href="/login" class="link">Login</a></button>
+    {{if .Username}}
     <div disabled="true" class="username">
-        {{if .Username}}
-            {{.Username}}<button class="button"><a href="/logout" class="link">Logout</a></button>
-        {{end}}
+        <span style="padding-right: 5px">{{.Username}}</span><button class="button"><a href="/logout" class="link">Logout</a></button>
     </div>
+    {{ else }}
+        <button class="button" ><a href="/register" class=link>Registration</a></button>
+        <button class="button"><a href="/login" class="link">Login</a></button>
+    {{end}}
     <div align="center"><form method="POST" action="/book">
         <label for="name" class="label">Book Name:</label>
         <input type="text" id="name" name="name">

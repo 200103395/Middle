@@ -10,11 +10,18 @@
             grid-template-columns: auto auto auto auto auto auto;
             gap: 15px;
             padding: 30px;
+            min-width: 30vw;
+            width: 90vw;
+            margin: auto;
+            overflow: auto;
         }
         .container .mini {
             background-color: rgba(255, 255, 255, 0.8);
             text-align: center;
             padding: 20px 0;
+            border-radius: 5px;
+            border: 2px solid black;
+            box-shadow: 2px 2px 2px gray;
         }
         .container .mini .name {
             font-size: 36px;
@@ -41,9 +48,14 @@
 </head>
 <body>
     <button class="button"><a href="/" class="link">Main page</a></button>
-    {{if .Username}}
-    <div align="right" style="font-size: 26px;font-family: 'Montserrat', sans-serif;">{{.Username}}<button class="button"><a href="/logout" class="link">Logout</a></button></div>
-    {{end}}
+        {{if .Username}}
+            <div align="right" style="font-size: 26px;font-family: 'Montserrat', sans-serif; display: inline; padding-left: 1200px;"><span style="padding-right: 5px">{{.Username}}</span><button class="button"><a href="/logout" class="link">Logout</a></button></div>
+        {{end}}
+    <div align="center"><form method="POST" action="/book">
+        <label for="name" class="label">Book Name:</label>
+        <input type="text" id="name" name="name" value={{.SearchName}}>
+        <input type="submit" value="Search">
+    </form></div>
     <div class="container">
         {{ range .Books }}
         <div class="mini">
