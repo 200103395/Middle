@@ -16,39 +16,51 @@ var tpl *template.Template
 var db *sql.DB
 var store = sessions.NewCookieStore([]byte("super-secret"))
 
+// Struct type that contain all info about book, except id since we don't need it anyways
 type Book struct {
 	Name   string
 	Author string
 	Price  string
 }
 
+// Struct type that we send to templates, consist of username to show visually that we are logged in and books info from database
 type SentTemp struct {
 	Username string
 	Books    []Book
-}
-type Nofound struct {
-	Error   string
-	Checker bool
 }
 
 var SentTemplate SentTemp
 
 func main() {
+	Database()
 	var err error
+	//Template struct that is used to open and send data in html files
 	tpl, err = tpl.ParseGlob("templates/*.html")
-
 	if err != nil {
 		fmt.Println("Template parsing error")
 		panic(err.Error())
 	}
+	//Handle functions that opens related function for every url
+	http.HandleFunc("/register", RegisterHandler)
+	http.HandleFunc("/registerconfirm", RegisterConfirmationHandler)
+	http.HandleFunc("/login", LoginHandler)
+	http.HandleFunc("/loginconfirm", LoginConfirmationHadler)
+	http.HandleFunc("/", MainPageHandler)
+	http.HandleFunc("/logout", LogoutHandler)
+	http.HandleFunc("/book", BookHandler)
+	http.ListenAndServe("localhost:8080", nil)
+}
 
-	db, err = sql.Open("mysql", "root:Ak200222!@tcp(localhost:3306)/testdb")
+func Database() {
+	//Function that connects to database and takes all information from books table
+	db, err := sql.Open("mysql", "root:Ak200222!@tcp(localhost:3306)/testdb")
 	if err != nil {
 		fmt.Println("Error connecting to database")
 		panic(err.Error())
 	}
+	//Taking information only once since we don't change books table in site
 	var books *[]Book
-	books = &SentTemplate.Books
+	books = &SentTemplate.Books //Changes books variable that are send to templates
 	rows, _ := db.Query("SELECT * from Books")
 	for rows.Next() {
 		var name string
@@ -63,21 +75,15 @@ func main() {
 		*books = append(*books, book)
 	}
 	defer db.Close()
-	http.HandleFunc("/register", RegisterHandler)
-	http.HandleFunc("/registerconfirm", RegisterConfirmationHandler)
-	http.HandleFunc("/login", LoginHandler)
-	http.HandleFunc("/loginconfirm", LoginConfirmationHadler)
-	http.HandleFunc("/", MainPageHandler)
-	http.HandleFunc("/logout", LogoutHandler)
-	http.HandleFunc("/book", BookHandler)
-	http.ListenAndServe("localhost:8080", nil)
 }
 
-func Cookie(w http.ResponseWriter, r *http.Request) {
+func Cookie(r *http.Request) {
+	//Function that gets session cookie and prepares it for sending to templates
 	session, _ := store.Get(r, "session")
 	username, ok := session.Values["username"]
 	fmt.Println("ok:", ok)
 	if !ok {
+		//If no session cookie found or error occured, change username to zero string
 		SentTemplate.Username = ""
 		return
 	}
@@ -85,37 +91,30 @@ func Cookie(w http.ResponseWriter, r *http.Request) {
 }
 
 func BookHandler(w http.ResponseWriter, r *http.Request) {
+	//Handler for book search function in main page
 	r.ParseForm()
 	searchName := r.FormValue("name")
 	fmt.Println(searchName)
+	//Find books from taken information that contains searched name
+	//P.S. SentTemplate.Books that contains books info from database, it is taken in main function at the start of the server
 	var Books []Book
-	rows, _ := db.Query("SELECT * from Books")
-	for rows.Next() {
-		var name string
-		var price string
-		var author string
-		var id int
-		err := rows.Scan(&id, &name, &price, &author)
-		if err != nil {
-			panic(err)
-		}
-		//Compare book with searched book
-		if strings.Contains(strings.ToLower(name), strings.ToLower(searchName)) {
-			book := Book{name, author, price}
+	for _, bk := range SentTemplate.Books {
+		if strings.Contains(strings.ToLower(bk.Name), strings.ToLower(searchName)) {
+			book := bk
 			Books = append(Books, book)
 		}
 	}
-	fmt.Println(SentTemplate)
-	Cookie(w, r)
+	Cookie(r) //Checking if logged in
+	//New template, since we must not change info that taken from data
 	SentTe := SentTemp{SentTemplate.Username, Books}
+	tpl.ExecuteTemplate(w, "book.html", SentTe)
 	if len(Books) == 0 {
-		tpl.ExecuteTemplate(w, "book.html", Nofound{"No book found", true})
-	} else {
-		tpl.ExecuteTemplate(w, "book.html", SentTe)
+		fmt.Println("No such book found")
 	}
 }
 
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	//Delete session cookie and redirect to main page
 	session, _ := store.Get(r, "session")
 	session.Options.MaxAge = -1
 	session.Save(r, w)
@@ -123,55 +122,63 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func MainPageHandler(w http.ResponseWriter, r *http.Request) {
+	//Checking if logged in and running mainpage.html
 	fmt.Println("Main page running")
-	Cookie(w, r)
+	Cookie(r)
 	tpl.ExecuteTemplate(w, "mainpage.html", SentTemplate)
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
+	//Running login.html with login form
 	fmt.Println("Login handler successfully running")
 	tpl.ExecuteTemplate(w, "login.html", nil)
 }
 
 func LoginConfirmationHadler(w http.ResponseWriter, r *http.Request) {
+	//Function that checks if username and password are correct
 	fmt.Println("Login confirmation successfully running")
 	r.ParseForm()
 	username := r.FormValue("username")
 	password := r.FormValue("password")
+	//Taking hashed password from database with given username
 	var hash string
 	statement := "SELECT password from Users WHERE username = ?"
 	row := db.QueryRow(statement, username)
 	err := row.Scan(&hash)
-	fmt.Println("hash from db:", hash)
 	if err != nil {
 		fmt.Println("Error taking hash from db")
 		tpl.ExecuteTemplate(w, "login.html", "Check username and password")
 		return
 	}
+	//Comparing hashed password with written by user
 	err = bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	if err == nil {
+		//Username and password match with database, so create session cookie with given username
 		fmt.Println("Login successfully")
 		session, _ := store.Get(r, "session")
 		session.Values["username"] = username
 		session.Save(r, w)
 		http.Redirect(w, r, "/", http.StatusFound)
-		//tpl.ExecuteTemplate(w, "mainpage.html", username)
 		return
 	}
+	//If error occured, run login.html to try login again
 	fmt.Println("Incorrect password")
 	tpl.ExecuteTemplate(w, "login.html", "check username and password")
 }
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
+	//Running register.html with registration form
 	fmt.Println("Register handler successfully running")
 	tpl.ExecuteTemplate(w, "register.html", nil)
 }
 
 func RegisterConfirmationHandler(w http.ResponseWriter, r *http.Request) {
+	//Funtion that checks if username and password are valid, and inserts them in database
 	fmt.Println("Register confirmation handler successfully running")
 	r.ParseForm()
 	username := r.FormValue("username")
 	password := r.FormValue("password")
+	//Validation of username
 	var UsernameValid = true
 	for _, char := range username {
 		if unicode.IsDigit(char) == false && unicode.IsLetter(char) == false {
@@ -182,7 +189,7 @@ func RegisterConfirmationHandler(w http.ResponseWriter, r *http.Request) {
 		tpl.ExecuteTemplate(w, "register.html", "Invalid username")
 		return
 	}
-	fmt.Println("Parsing successfull")
+	//Validation of password
 	var Uppercase, Lowercase, Digit, Noother bool
 	Noother = true
 	for _, char := range password {
@@ -203,6 +210,7 @@ func RegisterConfirmationHandler(w http.ResponseWriter, r *http.Request) {
 		tpl.ExecuteTemplate(w, "register.html", "Invalid password")
 		return
 	}
+	//When both are valid, check if username already taken
 	statement := "SELECT UserID from Users WHERE username = ?"
 	row := db.QueryRow(statement, username)
 	var UserID int
@@ -212,8 +220,7 @@ func RegisterConfirmationHandler(w http.ResponseWriter, r *http.Request) {
 		tpl.ExecuteTemplate(w, "register.html", "Username already taken")
 		return
 	}
-	fmt.Println("Username unique")
-
+	//When username is unique, hash password and insert both in database
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	fmt.Println(hash)
 	if err != nil {
@@ -225,14 +232,11 @@ func RegisterConfirmationHandler(w http.ResponseWriter, r *http.Request) {
 		tpl.ExecuteTemplate(w, "register.html", "Error inserting data")
 		return
 	}
-	result, err := insert.Exec(username, hash)
+	_, err = insert.Exec(username, hash)
 	if err != nil {
-		panic(err.Error())
 		tpl.ExecuteTemplate(w, "register.html", "Error inserting data")
 		return
 	}
-	fmt.Println(result.RowsAffected())
 	fmt.Println("User created successfully")
 	http.Redirect(w, r, "/", http.StatusFound)
-	//tpl.ExecuteTemplate(w, "mainpage.html", username)
 }
